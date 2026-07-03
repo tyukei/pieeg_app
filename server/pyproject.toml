@@ -1,0 +1,20 @@
+[project]
+name = "pieeg-server"
+version = "0.1.0"
+description = "Aggregation server: ingests EEG chunks, computes band powers, broadcasts to the web UI"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "numpy>=1.26",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

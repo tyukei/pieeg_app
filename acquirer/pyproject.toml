@@ -1,0 +1,21 @@
+[project]
+name = "pieeg-acquirer"
+version = "0.1.0"
+description = "PiEEG-16 acquirer: reads 16ch EEG (hardware or simulator) and streams to the server over WebSocket"
+requires-python = ">=3.11"
+dependencies = [
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+# Hardware-only deps; installed on the Raspberry Pi, skipped in CI / on laptops.
+hardware = [
+    "spidev>=3.6",
+    "gpiod>=2.1",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
