@@ -25,6 +25,19 @@ PiEEG-16 (SPI)                サーバー (FastAPI)              Web (Vite + TS
 - **web/** — 軽量な Vite + TypeScript + Canvas。**サーバー無しでもブラウザ内シミュレータで動く**ため、
   GitHub Pages にそのまま置いてデモできる。実機接続時は「サーバー接続」を選び `ws://…/ws` を指定。
 
+### 表示パネル(web)
+
+参考元 `eeg_roomba/frontend` を踏襲しつつ、依存ライブラリ無し(全て素の Canvas)で実装:
+
+- **波形** — 16ch を積み上げ表示(自動スケール)。
+- **バンドパワー** — δ/θ/α/β/γ の全ch平均を対数棒グラフ + 数値。
+- **メンタル状態** — 集中度 `Focus = β/(α+θ)`(Pope engagement)とリラックス度 `Relax = α/(α+β)` を
+  ゲージ + 時系列で表示し、集中/リラックス/中立を判定。`src/mind.ts`。
+- **頭部トポグラフィ** — 選択バンドのch別パワーを 10-20 電極配置(`src/montage.ts`)で
+  逆距離加重補間したスカルプヒートマップ。`src/topography.ts`。
+- **3D 電極マップ** — 回転する頭部ドーム上に電極を配置。ライブラリ非依存の手書き 3D
+  (透視投影 + 深度ソート)で、大きさ・色が選択バンドのパワーを表す。`src/brain3d.ts`。
+
 ## セットアップと実行
 
 ### 1. シミュレータだけで試す(ハード不要・最速)
@@ -55,16 +68,47 @@ Web を開き「サーバー接続」を選択 → `ws://localhost:8000/ws` → 
 
 ### 3. 実機(Raspberry Pi + PiEEG-16)
 
-Pi 上で:
+取得方法は 2 通り。**既に参考元の `pieeg-acquirer.service`(LSL 配信)が動いている Pi** では、
+SPI を奪わない **LSL ブリッジ(推奨)** が無難です。
+
+#### 3a. LSL ブリッジ(推奨 — 既存サービスを止めない)
+
+参考元 acquirer が publish している LSL ストリーム `PiEEG-16` を localhost で購読し、
+本アプリのサーバーへ中継します。SPI には触れません。
+
+```bash
+# Pi 上。pylsl の liblsl.so は参考元 venv のものを流用（PYLSL_LIB で指定）
+cd /home/pieeg/pieeg_app/server
+../.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+
+cd /home/pieeg/pieeg_app/acquirer
+export PYLSL_LIB=/home/pieeg/Documents/eeg_roomba/pi_a_acquirer/.venv/lib/python3.13/site-packages/pylsl/lib/liblsl.so
+../.venv/bin/python stream.py --source lsl --server ws://localhost:8000/ingest &
+```
+
+常駐させるなら `deploy/pieeg-app-server.service` と `deploy/pieeg-app-bridge.service` を
+`/etc/systemd/system/` に置いて `systemctl enable --now` する(下記「Pi 常駐」参照)。
+
+#### 3b. 直接 SPI 読み出し(参考元 acquirer を使わない場合)
 
 ```bash
 cd acquirer
 uv pip install -e ".[hardware]"    # spidev / gpiod を追加インストール
+# 既存の pieeg-acquirer.service が動いていると SPI 競合するので先に停止
+sudo systemctl stop pieeg-acquirer.service
 uv run python stream.py --source hardware --server ws://<サーバーIP>:8000/ingest
 ```
 
-サーバーは任意の PC で `uvicorn main:app --port 8000`。Web は Pages 版または任意ホストで開き、
-`ws://<サーバーIP>:8000/ws` に接続。
+Web は Pages 版または任意ホストで開き、`ws://<サーバーIP>:8000/ws`(Tailscale なら
+`ws://<tailscale-ip>:8000/ws`)に接続。URL 直リンクは `?mode=server&url=ws://<ip>:8000/ws`。
+
+### Pi 常駐(systemd)
+
+```bash
+sudo cp deploy/pieeg-app-server.service deploy/pieeg-app-bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pieeg-app-server pieeg-app-bridge
+```
 
 ## テスト
 

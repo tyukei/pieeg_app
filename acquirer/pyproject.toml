@@ -13,6 +13,11 @@ hardware = [
     "spidev>=3.6",
     "gpiod>=2.1",
 ]
+# For --source lsl (tap an existing LSL stream). liblsl.so must be resolvable
+# (bundled with the pylsl wheel, or via the PYLSL_LIB env var).
+lsl = [
+    "pylsl>=1.16",
+]
 dev = [
     "pytest>=8.0",
 ]

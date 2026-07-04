@@ -93,4 +93,47 @@ export function drawBands(canvas: HTMLCanvasElement, bands: Bands): void {
   }
 }
 
+// Focus/Relax time series: two normalized traces over a rolling window.
+// series: array of {focus, relax}; focus normalized to /2, relax to /1.
+export function drawMindTimeline(
+  canvas: HTMLCanvasElement,
+  series: { focus: number; relax: number }[],
+): void {
+  const ctx = fitCanvas(canvas);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  // Mid grid line.
+  ctx.strokeStyle = "#1f2937";
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (series.length < 2) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("時系列を蓄積中…", w / 2, h / 2 - 6);
+    return;
+  }
+
+  const trace = (pick: (s: { focus: number; relax: number }) => number, color: string) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < series.length; i++) {
+      const x = (i / (series.length - 1)) * w;
+      const y = h - Math.max(0, Math.min(1, pick(series[i]))) * h;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+  trace((s) => s.relax, "#22c55e"); // relax (alpha)
+  trace((s) => s.focus / 2, "#f59e0b"); // focus (beta engagement)
+}
+
 export { BAND_ORDER, BAND_COLORS };

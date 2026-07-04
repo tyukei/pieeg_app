@@ -16,35 +16,85 @@
           <option value="simulator">シミュレータ（ブラウザ内）</option>
           <option value="server">サーバー接続</option>
         </select>
-        <input
-          id="server-url"
-          type="text"
-          value="ws://localhost:8000/ws"
-          size="28"
-          disabled
-        />
+        <input id="server-url" type="text" value="ws://localhost:8000/ws" size="26" disabled />
         <button id="apply">適用</button>
       </div>
     </header>
 
     <main>
-      <section class="card">
+      <!-- Mind state -->
+      <section class="card mind" id="mind-card">
+        <div class="mind-head">
+          <div class="mind-badge">
+            <span id="mind-label" class="mind-label">—</span>
+            <span id="mind-hint" class="mind-hint"></span>
+          </div>
+          <div class="gauges">
+            <div class="gauge">
+              <div class="gauge-top"><strong>集中 Focus</strong><small>β/(α+θ)</small></div>
+              <div class="gauge-bar"><div id="focus-fill" class="gauge-fill focus"></div></div>
+              <div id="focus-num" class="gauge-num">0.00</div>
+            </div>
+            <div class="gauge">
+              <div class="gauge-top"><strong>リラックス Relax</strong><small>α/(α+β)</small></div>
+              <div class="gauge-bar"><div id="relax-fill" class="gauge-fill relax"></div></div>
+              <div id="relax-num" class="gauge-num">0.00</div>
+            </div>
+          </div>
+        </div>
+        <canvas id="mind-timeline"></canvas>
+        <div class="legend">
+          <span><i class="sw focus"></i>Focus</span>
+          <span><i class="sw relax"></i>Relax</span>
+          <small id="mind-meta"></small>
+        </div>
+      </section>
+
+      <!-- Waveform -->
+      <section class="card wave-card">
         <h2>波形 (16ch, μV)</h2>
         <canvas id="wave"></canvas>
       </section>
 
+      <!-- Band powers -->
       <section class="card">
         <h2>バンドパワー (全ch平均)</h2>
         <canvas id="bands"></canvas>
         <div id="band-values" class="band-values"></div>
+      </section>
+
+      <!-- Topography -->
+      <section class="card topo-card">
+        <div class="card-head">
+          <h2>頭部トポグラフィ</h2>
+          <select id="topo-band" title="表示バンド">
+            <option value="delta">delta</option>
+            <option value="theta">theta</option>
+            <option value="alpha" selected>alpha</option>
+            <option value="beta">beta</option>
+            <option value="gamma">gamma</option>
+          </select>
+        </div>
+        <canvas id="topo"></canvas>
+        <small class="hint">選択バンドのch別パワーを10-20配置で補間表示</small>
+      </section>
+
+      <!-- 3D brain -->
+      <section class="card brain-card">
+        <div class="card-head">
+          <h2>3D 電極マップ</h2>
+          <small class="hint" id="brain3d-band-label">alpha</small>
+        </div>
+        <canvas id="brain3d"></canvas>
+        <small class="hint">回転する頭部ドーム上に電極を配置。大きさ・色 = 選択バンドのパワー</small>
       </section>
     </main>
 
     <footer>
       <span id="meta"></span>
       <span class="hint">
-        実機は <code>--source hardware</code> の acquirer と server を起動し、上で
-        「サーバー接続」を選択。
+        実機は acquirer(<code>--source lsl</code> または <code>hardware</code>)+ server を起動し、
+        上で「サーバー接続」を選択。
       </span>
     </footer>
 

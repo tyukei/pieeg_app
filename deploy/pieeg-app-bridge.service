@@ -1,0 +1,17 @@
+[Unit]
+Description=PiEEG app LSL→server bridge (taps the existing PiEEG-16 LSL stream)
+After=network-online.target pieeg-app-server.service pieeg-acquirer.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pieeg
+WorkingDirectory=/home/pieeg/pieeg_app/acquirer
+# liblsl.so ships with the reference project's venv; point pylsl at it.
+Environment=PYLSL_LIB=/home/pieeg/Documents/eeg_roomba/pi_a_acquirer/.venv/lib/python3.13/site-packages/pylsl/lib/liblsl.so
+ExecStart=/home/pieeg/pieeg_app/.venv/bin/python stream.py --source lsl --server ws://localhost:8000/ingest
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
