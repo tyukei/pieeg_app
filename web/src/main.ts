@@ -101,7 +101,15 @@ function switchSource(): void {
   current.start();
 }
 
-// URL params: ?mode=server&url=ws://host:8000/ws
+// Default server URL depends on how the page is served:
+// - HTTPS (GitHub Pages) → must use wss:// (browsers block ws:// from https).
+//   Points at the Pi's tailscale-serve TLS endpoint. Change to your own host.
+// - http/localhost (local dev) → the local server on ws://localhost:8000/ws.
+const DEFAULT_WSS = "wss://pieeg.tail29b1d2.ts.net/ws";
+const DEFAULT_WS_LOCAL = "ws://localhost:8000/ws";
+urlInput.value = location.protocol === "https:" ? DEFAULT_WSS : DEFAULT_WS_LOCAL;
+
+// URL params: ?mode=server&url=wss://host/ws  (override the default above)
 const params = new URLSearchParams(location.search);
 if (params.get("url")) urlInput.value = params.get("url")!;
 if (params.get("mode") === "server") modeSel.value = "server";

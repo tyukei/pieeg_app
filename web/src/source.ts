@@ -93,6 +93,11 @@ export class ServerSource implements Source {
   }
 
   private connect(): void {
+    // Browsers block insecure ws:// from an https:// page (mixed content).
+    if (location.protocol === "https:" && this.url.startsWith("ws://")) {
+      this.onStatus(false, "HTTPSページからは wss:// が必要です（ws:// はブロックされます）");
+      return;
+    }
     this.onStatus(false, `接続中… ${this.url}`);
     let ws: WebSocket;
     try {
