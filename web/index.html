@@ -18,6 +18,23 @@
         </select>
         <input id="server-url" type="text" value="wss://pieeg.tail29b1d2.ts.net/ws" size="30" disabled />
         <button id="apply">適用</button>
+        <span class="ctrl-sep"></span>
+        <label class="ctrl">窓
+          <select id="win-sec" title="分析窓長(秒)">
+            <option value="0.5">0.5s</option>
+            <option value="1" selected>1s</option>
+            <option value="2">2s</option>
+            <option value="4">4s</option>
+          </select>
+        </label>
+        <label class="ctrl">スライド
+          <select id="hop-sec" title="スライド幅 / hop(秒)">
+            <option value="0.1">0.1s</option>
+            <option value="0.25" selected>0.25s</option>
+            <option value="0.5">0.5s</option>
+            <option value="1">1s</option>
+          </select>
+        </label>
       </div>
     </header>
 
@@ -87,6 +104,16 @@
         </div>
         <canvas id="brain3d"></canvas>
         <small class="hint">回転する頭部ドーム上に電極を配置。大きさ・色 = 選択バンドのパワー</small>
+      </section>
+
+      <!-- 3D cognitive-state trajectory -->
+      <section class="card traj-card">
+        <div class="card-head">
+          <h2>認知状態トラジェクトリ (3D)</h2>
+          <small class="hint">focus × time × relax</small>
+        </div>
+        <canvas id="traj3d"></canvas>
+        <small class="hint">集中度と弛緩度の時間変化を3D空間の軌跡として表示（先端＝現在）</small>
       </section>
     </main>
 

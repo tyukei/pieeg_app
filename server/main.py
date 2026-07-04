@@ -30,10 +30,12 @@ log = logging.getLogger("server")
 
 NCH = 16
 DEFAULT_SRATE = 250
-WIN_SEC = 1.0        # analysis window
-HOP_SEC = 0.25       # emit cadence (4 Hz)
+WIN_SEC = 1.0        # analysis window (default; adjustable at runtime)
+HOP_SEC = 0.25       # emit cadence (default; adjustable at runtime)
+WIN_MIN, WIN_MAX = 0.25, 4.0   # allowed analysis-window range (s)
+HOP_MIN, HOP_MAX = 0.05, 2.0   # allowed slide/hop range (s)
 DISPLAY_HZ = 50      # raw waveform downsample target for the UI
-RAW_SECONDS = 4.0    # how much recent raw the UI buffers server-side
+RAW_SECONDS = 6.0    # recent raw buffered server-side (≥ WIN_MAX + display headroom)
 
 
 class Hub:
@@ -42,16 +44,26 @@ class Hub:
     def __init__(self, srate: int = DEFAULT_SRATE, nch: int = NCH) -> None:
         self.srate = srate
         self.nch = nch
-        self.win_n = int(srate * WIN_SEC)
+        self.win_sec = WIN_SEC
+        self.hop_sec = HOP_SEC
+        self.win_n = int(srate * self.win_sec)
         self.buf: deque[list[float]] = deque(maxlen=int(srate * RAW_SECONDS))
         self.clients: set[WebSocket] = set()
         self.samples_total = 0
         self.last_ingest_ts = 0.0
 
+    def set_config(self, win_sec: float | None = None, hop_sec: float | None = None) -> None:
+        """Clamp and apply a runtime window/hop change (from a web client)."""
+        if win_sec is not None:
+            self.win_sec = max(WIN_MIN, min(WIN_MAX, float(win_sec)))
+            self.win_n = max(2, int(self.srate * self.win_sec))
+        if hop_sec is not None:
+            self.hop_sec = max(HOP_MIN, min(HOP_MAX, float(hop_sec)))
+
     def add_chunk(self, samples: list[list[float]], srate: int | None = None) -> None:
-        if srate:
+        if srate and srate != self.srate:
             self.srate = srate
-            self.win_n = int(srate * WIN_SEC)
+            self.win_n = max(2, int(srate * self.win_sec))
         for s in samples:
             self.buf.append(s)
         self.samples_total += len(samples)
@@ -76,6 +88,8 @@ class Hub:
             "bands": band_powers_mean(analysis, self.srate),
             "bands_per_ch": band_powers(analysis, self.srate),
             "samples_total": self.samples_total,
+            "win_sec": self.win_sec,
+            "hop_sec": self.hop_sec,
         }
 
     async def broadcast(self, frame: dict) -> None:
@@ -99,7 +113,7 @@ hub = Hub()
 
 async def _emit_loop() -> None:
     while True:
-        await asyncio.sleep(HOP_SEC)
+        await asyncio.sleep(hub.hop_sec)  # cadence is runtime-adjustable
         frame = hub.aggregate_frame()
         if frame is not None:
             await hub.broadcast(frame)
@@ -163,8 +177,17 @@ async def ws_clients(ws: WebSocket) -> None:
     log.info("web client connected (%d total)", len(hub.clients))
     try:
         while True:
-            # Clients are receive-only; keep the socket alive.
-            await ws.receive_text()
+            # Clients mostly receive; an inbound message may carry a
+            # {"win_sec":..,"hop_sec":..} config to adjust the sliding window.
+            text = await ws.receive_text()
+            try:
+                import json
+
+                cfg = json.loads(text)
+                hub.set_config(cfg.get("win_sec"), cfg.get("hop_sec"))
+                log.info("config: win=%.2fs hop=%.2fs", hub.win_sec, hub.hop_sec)
+            except Exception:
+                pass  # ignore non-config keepalives
     except WebSocketDisconnect:
         pass
     finally:

@@ -60,7 +60,28 @@ def test_raw_is_downsampled() -> None:
 
 def test_buffer_bounded() -> None:
     hub = Hub(srate=SRATE)
-    for _ in range(10):
-        hub.add_chunk(_chunk(10.0, SRATE), srate=SRATE)  # 10 s pushed
-    # RAW_SECONDS=4 → buffer capped near 4 s worth.
-    assert len(hub.buf) <= SRATE * 4
+    for _ in range(20):
+        hub.add_chunk(_chunk(10.0, SRATE), srate=SRATE)  # 20 s pushed
+    # RAW_SECONDS=6 → buffer capped near 6 s worth.
+    assert len(hub.buf) <= SRATE * 6
+
+
+def test_set_config_clamps_and_applies() -> None:
+    hub = Hub(srate=SRATE)
+    hub.set_config(win_sec=2.0, hop_sec=0.5)
+    assert hub.win_sec == 2.0
+    assert hub.hop_sec == 0.5
+    assert hub.win_n == SRATE * 2
+    # out-of-range values are clamped, not rejected
+    hub.set_config(win_sec=99.0, hop_sec=0.0)
+    assert hub.win_sec == 4.0  # WIN_MAX
+    assert hub.hop_sec == 0.05  # HOP_MIN
+
+
+def test_frame_reports_current_config() -> None:
+    hub = Hub(srate=SRATE)
+    hub.set_config(win_sec=2.0, hop_sec=0.5)
+    hub.add_chunk(_chunk(10.0, SRATE), srate=SRATE)
+    frame = hub.aggregate_frame()
+    assert frame["win_sec"] == 2.0
+    assert frame["hop_sec"] == 0.5

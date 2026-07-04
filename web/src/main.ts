@@ -6,6 +6,7 @@ import { drawBands, drawMindTimeline, drawWaveform } from "./chart";
 import { mindState, trailingMean } from "./mind";
 import { type Frame, ServerSource, SimulatorSource, type Source } from "./source";
 import { drawTopography } from "./topography";
+import { Trajectory3D } from "./trajectory3d";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -23,6 +24,9 @@ const bandTable = $("band-values");
 const meta = $("meta");
 const topoBandSel = $<HTMLSelectElement>("topo-band");
 const brainBandLabel = $("brain3d-band-label");
+const trajCanvas = $<HTMLCanvasElement>("traj3d");
+const winSel = $<HTMLSelectElement>("win-sec");
+const hopSel = $<HTMLSelectElement>("hop-sec");
 
 const mindLabel = $("mind-label");
 const mindHint = $("mind-hint");
@@ -42,6 +46,8 @@ const HINTS: Record<string, string> = {
 let current: Source | null = null;
 const brain = new Brain3D(brainCanvas);
 brain.start();
+const traj = new Trajectory3D(trajCanvas);
+traj.start();
 
 // Rolling focus/relax history (client-side) for the timeline.
 const MIND_HISTORY = 240; // ~24s at 10Hz
@@ -69,6 +75,7 @@ function updateMind(f: Frame): void {
   relaxNum.textContent = relaxSmooth.toFixed(2);
   mindMeta.textContent = `16ch平均 · ${mindHistory.length} samples`;
   drawMindTimeline(mindTimelineCanvas, mindHistory);
+  traj.push({ focus: focusSmooth, relax: relaxSmooth });
 }
 
 function onFrame(f: Frame): void {
@@ -91,6 +98,12 @@ function onFrame(f: Frame): void {
   updateMind(f);
 }
 
+function applyConfig(): void {
+  const winSec = parseFloat(winSel.value);
+  const hopSec = parseFloat(hopSel.value);
+  current?.setConfig(winSec, hopSec);
+}
+
 function switchSource(): void {
   current?.stop();
   const serverMode = modeSel.value === "server";
@@ -99,6 +112,7 @@ function switchSource(): void {
     ? new ServerSource(urlInput.value.trim(), onFrame, setStatus)
     : new SimulatorSource(onFrame, setStatus);
   current.start();
+  applyConfig(); // sync the newly-created source to the UI's window/hop
 }
 
 // Default server URL depends on how the page is served:
@@ -116,5 +130,7 @@ if (params.get("mode") === "server") modeSel.value = "server";
 
 applyBtn.addEventListener("click", switchSource);
 modeSel.addEventListener("change", switchSource);
+winSel.addEventListener("change", applyConfig);
+hopSel.addEventListener("change", applyConfig);
 
 switchSource();

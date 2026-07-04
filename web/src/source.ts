@@ -13,6 +13,8 @@ export interface Frame {
   bands: Bands;
   bandsPerCh: Record<string, number[]>;
   source: "simulator" | "server";
+  winSec?: number;
+  hopSec?: number;
 }
 
 export type FrameHandler = (f: Frame) => void;
@@ -21,12 +23,14 @@ export type StatusHandler = (connected: boolean, detail: string) => void;
 export interface Source {
   start(): void;
   stop(): void;
+  // Adjust the sliding analysis window (s) and slide/hop (s) at runtime.
+  setConfig(winSec: number, hopSec: number): void;
 }
 
-const WIN_SEC = 1.0;
-const HOP_MS = 100; // 10 Hz UI updates
-const RAW_SECONDS = 4.0;
+const RAW_SECONDS = 6.0; // matches server buffer; ≥ max window + display headroom
 const DISPLAY_HZ = 50;
+export const DEFAULT_WIN_SEC = 1.0;
+export const DEFAULT_HOP_SEC = 0.25;
 
 // ---- Simulator (standalone / GitHub Pages) --------------------------------
 
@@ -34,6 +38,8 @@ export class SimulatorSource implements Source {
   private dev: SimulatedPiEEG16;
   private buf: number[][] = [];
   private timer: number | null = null;
+  private winSec = DEFAULT_WIN_SEC;
+  private hopSec = DEFAULT_HOP_SEC;
 
   constructor(
     private onFrame: FrameHandler,
@@ -43,13 +49,29 @@ export class SimulatorSource implements Source {
     this.dev = new SimulatedPiEEG16(SRATE, seed);
   }
 
+  setConfig(winSec: number, hopSec: number): void {
+    this.winSec = winSec;
+    this.hopSec = hopSec;
+    if (this.timer !== null) {
+      // restart the timer so the new hop cadence takes effect
+      window.clearInterval(this.timer);
+      this.timer = null;
+      this.startTimer();
+    }
+  }
+
   start(): void {
     this.onStatus(true, "シミュレータ（ブラウザ内生成）");
-    const perTick = Math.round((SRATE * HOP_MS) / 1000);
+    this.startTimer();
+  }
+
+  private startTimer(): void {
+    const hopMs = Math.max(20, Math.round(this.hopSec * 1000));
     const maxLen = Math.round(SRATE * RAW_SECONDS);
-    const winN = Math.round(SRATE * WIN_SEC);
     const step = Math.max(1, Math.round(SRATE / DISPLAY_HZ));
     this.timer = window.setInterval(() => {
+      const perTick = Math.max(1, Math.round(SRATE * this.hopSec));
+      const winN = Math.round(SRATE * this.winSec);
       for (const s of this.dev.readChunk(perTick)) this.buf.push(s);
       if (this.buf.length > maxLen) this.buf.splice(0, this.buf.length - maxLen);
       const analysis = this.buf.slice(-winN);
@@ -65,8 +87,10 @@ export class SimulatorSource implements Source {
         bands: bandPowersMean(analysis, SRATE),
         bandsPerCh: bandPowersPerCh(analysis, SRATE),
         source: "simulator",
+        winSec: this.winSec,
+        hopSec: this.hopSec,
       });
-    }, HOP_MS);
+    }, hopMs);
   }
 
   stop(): void {
@@ -80,12 +104,23 @@ export class SimulatorSource implements Source {
 export class ServerSource implements Source {
   private ws: WebSocket | null = null;
   private closed = false;
+  private winSec = DEFAULT_WIN_SEC;
+  private hopSec = DEFAULT_HOP_SEC;
 
   constructor(
     private url: string,
     private onFrame: FrameHandler,
     private onStatus: StatusHandler,
   ) {}
+
+  setConfig(winSec: number, hopSec: number): void {
+    this.winSec = winSec;
+    this.hopSec = hopSec;
+    // Send config to the server; it adjusts the shared sliding window.
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ win_sec: winSec, hop_sec: hopSec }));
+    }
+  }
 
   start(): void {
     this.closed = false;
@@ -107,7 +142,11 @@ export class ServerSource implements Source {
       return;
     }
     this.ws = ws;
-    ws.onopen = () => this.onStatus(true, `接続済み ${this.url}`);
+    ws.onopen = () => {
+      this.onStatus(true, `接続済み ${this.url}`);
+      // Push the UI's current window/hop so the server matches on (re)connect.
+      ws.send(JSON.stringify({ win_sec: this.winSec, hop_sec: this.hopSec }));
+    };
     ws.onmessage = (ev) => {
       try {
         const d = JSON.parse(ev.data);
@@ -120,6 +159,8 @@ export class ServerSource implements Source {
           bands: d.bands,
           bandsPerCh: d.bands_per_ch,
           source: "server",
+          winSec: d.win_sec,
+          hopSec: d.hop_sec,
         });
       } catch {
         /* ignore malformed frames */

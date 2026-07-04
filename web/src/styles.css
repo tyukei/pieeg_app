@@ -92,10 +92,13 @@ main {
   grid-column: span 2;
 }
 .topo-card {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 .brain-card {
-  grid-column: span 3;
+  grid-column: span 2;
+}
+.traj-card {
+  grid-column: span 2;
 }
 
 @media (max-width: 900px) {
@@ -105,7 +108,8 @@ main {
   .wave-card,
   .wave-card + .card,
   .topo-card,
-  .brain-card {
+  .brain-card,
+  .traj-card {
     grid-column: 1 / -1;
   }
 }
@@ -160,10 +164,35 @@ main {
   display: block;
 }
 
-#brain3d {
+#brain3d,
+#traj3d {
   width: 100%;
   height: 300px;
   display: block;
+}
+
+.ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ctrl select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.ctrl-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 /* Mind-state panel */
