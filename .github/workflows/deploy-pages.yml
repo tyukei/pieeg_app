@@ -10,10 +10,12 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment.
+# Allow one concurrent deployment; queue newer runs but let an in-progress
+# production deployment finish (GitHub's recommended Pages setting). Canceling
+# in-progress runs produces a confusing "operation was canceled" error.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
