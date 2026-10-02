@@ -74,11 +74,14 @@ function updateMind(f: Frame): void {
   focusNum.textContent = focusSmooth.toFixed(2);
   relaxNum.textContent = relaxSmooth.toFixed(2);
   mindMeta.textContent = `16ch平均 · ${mindHistory.length} samples`;
-  drawMindTimeline(mindTimelineCanvas, mindHistory);
   traj.push({ focus: focusSmooth, relax: relaxSmooth });
 }
 
-function onFrame(f: Frame): void {
+let lastFrame: Frame | null = null;
+
+// Render everything derived from a frame (no state mutation) — reused on resize
+// / enlarge so canvases repaint at their new size without waiting for new data.
+function renderFrame(f: Frame): void {
   drawWaveform(waveCanvas, f.raw);
   drawBands(bandsCanvas, f.bands);
   bandTable.innerHTML = Object.entries(f.bands)
@@ -94,8 +97,20 @@ function onFrame(f: Frame): void {
   drawTopography(topoCanvas, perCh);
   brain.setData(perCh);
   brainBandLabel.textContent = band;
+  drawMindTimeline(mindTimelineCanvas, mindHistory);
+}
 
+function onFrame(f: Frame): void {
+  lastFrame = f;
   updateMind(f);
+  renderFrame(f);
+}
+
+// Repaint static canvases after a layout change (brain3d/traj3d self-animate).
+function redraw(): void {
+  requestAnimationFrame(() => {
+    if (lastFrame) renderFrame(lastFrame);
+  });
 }
 
 function applyConfig(): void {
@@ -132,5 +147,58 @@ applyBtn.addEventListener("click", switchSource);
 modeSel.addEventListener("change", switchSource);
 winSel.addEventListener("change", applyConfig);
 hopSel.addEventListener("change", applyConfig);
+
+// ── Click-to-enlarge: move a card into a fullscreen modal, restore on close ──
+const modal = document.createElement("div");
+modal.className = "modal hidden";
+const closeBtn = document.createElement("button");
+closeBtn.className = "modal-close";
+closeBtn.type = "button";
+closeBtn.textContent = "×";
+closeBtn.title = "閉じる (Esc)";
+modal.appendChild(closeBtn);
+document.body.appendChild(modal);
+
+const placeholder = document.createComment("card-placeholder");
+let openCard: HTMLElement | null = null;
+
+function enlarge(card: HTMLElement): void {
+  if (openCard) return;
+  openCard = card;
+  card.replaceWith(placeholder);
+  card.classList.add("enlarged");
+  modal.appendChild(card);
+  modal.classList.remove("hidden");
+  redraw();
+}
+
+function closeModal(): void {
+  if (!openCard) return;
+  openCard.classList.remove("enlarged");
+  placeholder.replaceWith(openCard);
+  openCard = null;
+  modal.classList.add("hidden");
+  redraw();
+}
+
+closeBtn.addEventListener("click", closeModal);
+modal.addEventListener("click", (e) => {
+  if (e.target === modal) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeModal();
+});
+
+for (const card of Array.from(document.querySelectorAll<HTMLElement>("main .card"))) {
+  card.addEventListener("click", (e) => {
+    if (card.classList.contains("enlarged")) return; // clicks inside the modal card
+    // Don't hijack clicks on the card's own controls.
+    if ((e.target as HTMLElement).closest("select, input, button, option, a")) return;
+    enlarge(card);
+  });
+}
+
+// Keep canvases crisp when the window is resized.
+window.addEventListener("resize", redraw);
 
 switchSource();

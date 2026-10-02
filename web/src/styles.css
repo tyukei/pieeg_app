@@ -11,11 +11,19 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* fit the whole dashboard into one screen */
 }
 
 header {
@@ -24,8 +32,9 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 header h1 {
@@ -76,41 +85,59 @@ header h1 {
 }
 
 main {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-  padding: 16px 20px;
+  grid-template-rows: auto minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 20px;
+  overflow: hidden;
 }
 
 .mind {
   grid-column: 1 / -1;
+  grid-row: 1;
 }
 .wave-card {
   grid-column: span 4;
+  grid-row: 2;
 }
 .wave-card + .card {
   grid-column: span 2;
+  grid-row: 2;
 }
 .topo-card {
   grid-column: span 2;
+  grid-row: 3;
 }
 .brain-card {
   grid-column: span 2;
+  grid-row: 3;
 }
 .traj-card {
   grid-column: span 2;
+  grid-row: 3;
 }
 
 @media (max-width: 900px) {
+  body {
+    overflow: auto; /* narrow screens scroll instead of cramming */
+  }
   main {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: visible;
   }
+  .mind,
   .wave-card,
   .wave-card + .card,
   .topo-card,
   .brain-card,
   .traj-card {
     grid-column: 1 / -1;
+    grid-row: auto;
+    min-height: 300px;
   }
 }
 
@@ -119,6 +146,18 @@ main {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+/* Only the inner controls should keep their normal cursor. */
+.card select,
+.card input,
+.card button {
+  cursor: pointer;
 }
 
 .card h2 {
@@ -128,14 +167,16 @@ main {
   font-weight: 600;
 }
 
-#wave {
+/* Canvases stretch to fill the remaining height of their (flex) card. */
+#wave,
+#bands,
+#topo,
+#brain3d,
+#traj3d {
+  flex: 1 1 0;
+  min-height: 0;
   width: 100%;
-  height: 460px;
-}
-
-#bands {
-  width: 100%;
-  height: 240px;
+  display: block;
 }
 
 .card-head {
@@ -158,17 +199,8 @@ main {
   font-size: 12px;
 }
 
-#topo {
-  width: 100%;
-  height: 280px;
-  display: block;
-}
-
-#brain3d,
-#traj3d {
-  width: 100%;
-  height: 300px;
-  display: block;
+.card-head {
+  flex: 0 0 auto;
 }
 
 .ctrl {
@@ -285,8 +317,9 @@ main {
 
 #mind-timeline {
   width: 100%;
-  height: 110px;
-  margin-top: 12px;
+  height: 84px;
+  margin-top: 10px;
+  flex: 0 0 auto;
 }
 
 .legend {
@@ -353,11 +386,13 @@ main {
 footer {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
-  padding: 12px 20px 24px;
+  padding: 8px 20px;
   color: var(--muted);
   font-size: 12px;
   border-top: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 footer code {
@@ -365,4 +400,61 @@ footer code {
   padding: 1px 5px;
   border-radius: 4px;
   color: #cbd5e1;
+}
+
+.band-values {
+  flex: 0 0 auto;
+}
+
+/* Click-to-enlarge modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3vh 3vw;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.card.enlarged {
+  cursor: default;
+  width: min(1200px, 94vw);
+  height: min(860px, 90vh);
+  max-width: 94vw;
+  max-height: 90vh;
+  margin: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* In the enlarged view the mind timeline should fill instead of staying short. */
+.card.enlarged #mind-timeline {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  border-color: var(--accent);
 }
